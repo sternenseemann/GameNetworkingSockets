@@ -128,18 +128,23 @@ class CTrivialSignalingClient : public ITrivialSignalingClient
 		CloseSocket();
 
 		int sockType = SOCK_STREAM;
-		#ifdef LINUX
-			sockType |= SOCK_CLOEXEC;
-		#endif
-		#if !defined( _WIN32 )
-			sockType |= SOCK_NONBLOCK;
-		#endif
 		m_sock = socket( m_adrServer.ss_family, sockType, IPPROTO_TCP );
 		if ( m_sock == INVALID_SOCKET )
 		{
 			TEST_Printf( "socket() failed, error=%d\n", GetSocketError() );
 			return;
 		}
+		#if !defined( _WIN32 )
+			int flags = fcntl( m_sock, F_GETFL );
+			flags |= O_NONBLOCK;
+			flags |= O_CLOEXEC;
+
+			if ( fcntl( m_sock, F_SETFL, flags ) != -1 )
+			{
+				CloseSocket();
+				TEST_Printf( "fcntl() failed, error=%d\n", GetSocketError() );
+			}
+		#endif
 		#ifdef _WIN32
 			unsigned long opt = 1;
 			if ( ioctlsocket( m_sock, FIONBIO, &opt ) == -1 )

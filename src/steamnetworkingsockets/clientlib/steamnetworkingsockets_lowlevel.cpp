@@ -988,9 +988,6 @@ static SOCKET OpenUDPSocketBoundToSockAddr( const void *sockaddr, size_t len, St
 	#ifdef LINUX
 		sockType |= SOCK_CLOEXEC;
 	#endif
-	#if defined( NN_NINTENDO_SDK ) && !defined( _WIN32 )
-		sockType |= SOCK_NONBLOCK;
-	#endif
 
 	// Try to create a UDP socket using the specified family
 	SOCKET sock = socket( inaddr->sin_family, sockType, IPPROTO_UDP );
@@ -1006,6 +1003,18 @@ static SOCKET OpenUDPSocketBoundToSockAddr( const void *sockaddr, size_t len, St
 		if ( ioctlsocket( sock, FIONBIO, (unsigned long*)&opt ) == -1 )
 		{
 			V_sprintf_safe( errMsg, "Failed to set socket nonblocking mode.  Error code 0x%08x.", GetLastSocketError() );
+			closesocket( sock );
+			return INVALID_SOCKET;
+		}
+	#endif
+
+	#if defined( NN_NINTENDO_SDK ) && !defined( _WIN32 )
+		int flags = fcntl( sock, F_GETFL );
+		flags |= O_NONBLOCK;
+
+		if ( fcntl( sock, F_SETFL, flags ) != -1 )
+		{
+			V_sprintf_safe( errMsg, "Failed to set socket nonblocking mode. Error code 0x%08x.", GetLastSocketError());
 			closesocket( sock );
 			return INVALID_SOCKET;
 		}
